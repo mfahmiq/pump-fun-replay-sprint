@@ -87,7 +87,12 @@ Local grading on the kit's dev window (process driver, two executions,
 byte-identical action logs): **net PnL +0.0189 SOL, 28 round trips over
 27 coins, 39% win rate, 0.22% max drawdown, guardrails met.** The margin
 is thin and the final window is different coins, so this is a small edge,
-honestly measured — not a guarantee.
+honestly measured — not a guarantee. A 10-copy stress test of rebuilt dev
+windows gave a median of −0.02 SOL (p10 −0.06, p90 0.00) with 9 of 10
+copies losing money, so the dev score leans on this window's own coins and
+the final window is roughly a coin flip around breakeven. It is entered
+because it is the best of ~100 swept configurations and it clears the
+guardrails with a positive dev score.
 
 ## How to run it
 
