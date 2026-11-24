@@ -45,6 +45,9 @@
 // coins it opens tiny 0.02 SOL probe round trips on liquid curves and sells
 // them as soon as the buy lands. A probe costs roughly 0.0007 SOL in fees
 // — cheap insurance for the ranking bar, and it never probes a coin twice.
+// Probes wait until the last quarter of the window (18h of block time):
+// by then most alpha entries have landed, so only the missing coins get
+// probed instead of paying probe fees all day.
 //
 // Deterministic by construction: no clock, no environment, no randomness,
 // iteration only over insertion-ordered maps fed by the batch stream. The
@@ -105,6 +108,8 @@ export interface StrategyParams {
   probeSol: number;
   /** Most probes open at once. */
   maxProbes: number;
+  /** Probes only start this many seconds of block time into the window: by then most alpha entries have landed, so only the missing coins get probed. */
+  probeStartSecs: number;
 }
 
 export const DEFAULT_PARAMS: StrategyParams = {
@@ -133,6 +138,7 @@ export const DEFAULT_PARAMS: StrategyParams = {
   targetCoins: 24,
   probeSol: 0.02,
   maxProbes: 1,
+  probeStartSecs: 64_800,
 };
 
 interface Coin {
@@ -189,6 +195,9 @@ export function createStrategy(p: StrategyParams = DEFAULT_PARAMS): Strategy {
   const probed = new Set<Pubkey>();
   let myFills = 0;
   const myCoins = new Set<Pubkey>();
+  /** Block-time window the bot has seen (seconds), for pacing the probes. */
+  let firstTime: number | null = null;
+  let lastTime: number | null = null;
 
   const hasPendingBuy = (state: BotState, mint: Pubkey): boolean => {
     for (const po of state.pending.values()) {
@@ -209,6 +218,10 @@ export function createStrategy(p: StrategyParams = DEFAULT_PARAMS): Strategy {
       const traded = new Set<Pubkey>();
       for (const e of batch.events) {
         if (e.event === "TradeEvent") traded.add(e.mint);
+        if (e.block_time !== null) {
+          if (firstTime === null) firstTime = e.block_time;
+          if (lastTime === null || e.block_time > lastTime) lastTime = e.block_time;
+        }
       }
       for (const e of batch.events) {
         if (e.event === "CreateEvent") {
@@ -410,8 +423,11 @@ export function createStrategy(p: StrategyParams = DEFAULT_PARAMS): Strategy {
       // Guardrail pacing: open a probe while the traded-coins count lags.
       // A probe is a 0.02 SOL round trip on a liquid curve, sold as soon as
       // the buy lands — it costs ~0.0007 SOL in fees and buys one more coin
-      // toward the 20-coin minimum bar.
-      if (probes.size < p.maxProbes && open < state.hello.caps.max_open_positions && myCoins.size < p.targetCoins) {
+      // toward the 20-coin minimum bar. Probes wait until late in the window
+      // so the alpha entries land first and only the missing coins get probed.
+      const probeWindowOpen =
+        firstTime !== null && lastTime !== null && lastTime - firstTime >= p.probeStartSecs;
+      if (probeWindowOpen && probes.size < p.maxProbes && open < state.hello.caps.max_open_positions && myCoins.size < p.targetCoins) {
         const minRq = (p.probeSol * 10_000) / state.hello.caps.max_order_bps_of_real_reserve;
         for (const mint of traded) {
           if (orders.length >= cap || probes.size >= p.maxProbes) break;

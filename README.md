@@ -61,7 +61,9 @@ on each of at least 20 coins). The selective setup only finds ~20 coins a
 day on its own, so while Sprint has traded fewer than 24 distinct coins it
 opens tiny 0.02 SOL probe round trips on liquid curves and sells them as
 soon as the buy lands. A probe costs roughly 0.0007 SOL in fees, and no
-coin is ever probed twice — cheap insurance for the ranking bar.
+coin is ever probed twice — cheap insurance for the ranking bar. Probes
+wait until the last quarter of the window (18 hours of block time), so the
+alpha entries land first and only the missing coins get probed.
 
 ## Why it should end PnL-positive after fees
 
@@ -82,8 +84,8 @@ only on moves that can pay for themselves:
    max-drawdown guardrail (dev-window drawdown was 0.2%).
 
 Local grading on the kit's dev window (process driver, two executions,
-byte-identical action logs): **net PnL +0.00097 SOL, 42 round trips over
-42 coins, 21% win rate, 0.24% max drawdown, guardrails met.** The margin
+byte-identical action logs): **net PnL +0.0189 SOL, 28 round trips over
+27 coins, 39% win rate, 0.22% max drawdown, guardrails met.** The margin
 is thin and the final window is different coins, so this is a small edge,
 honestly measured — not a guarantee.
 
